@@ -1,0 +1,5 @@
+.DS_Store
+.terraform
+coverage.*
+bin/
+go-tf-provisioner

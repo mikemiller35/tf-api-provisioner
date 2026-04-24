@@ -1,0 +1,33 @@
+internal/httpapi/handlers_test.go
+  f776361800d5601b 14,24
+internal/provisioner/provisioner.go
+  f776361800d5601b 14,35-39,41-45,67,70-74,121-124,126,131,144,148,156
+cmd/serve.go
+  f776361800d5601b 4-5,7,11-12,32-37,55,57,64-82
+internal/httpapi/server.go
+  f776361800d5601b 12-15,33,37-55,59,73
+internal/httpapi/handlers.go
+  f776361800d5601b 8-9,13,15,20-25,27,41,51-52,62
+internal/httpapi/middleware.go
+  f776361800d5601b 1-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.9",
+  "base_commit_sha": "f64b569b4cbf538ecb3c6e4b41fcbc35fb86cc1e",
+  "prompts": {
+    "f776361800d5601b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fc1cd1e3-a513-41ba-bf39-ec4513d04273",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mike Miller <mike.miller@getgarner.com>",
+      "messages": [],
+      "total_additions": 160,
+      "total_deletions": 40,
+      "accepted_lines": 156,
+      "overriden_lines": 0
+    }
+  }
+}

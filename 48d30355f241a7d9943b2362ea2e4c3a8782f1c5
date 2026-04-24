@@ -1,0 +1,23 @@
+Dockerfile
+  e3b9cb53e522dbc6 12,14-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.9",
+  "base_commit_sha": "48d30355f241a7d9943b2362ea2e4c3a8782f1c5",
+  "prompts": {
+    "e3b9cb53e522dbc6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f5333957-15cd-43e1-a040-1d75e4de55e9",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mike Miller <mike.miller@getgarner.com>",
+      "messages": [],
+      "total_additions": 9,
+      "total_deletions": 2,
+      "accepted_lines": 9,
+      "overriden_lines": 0
+    }
+  }
+}

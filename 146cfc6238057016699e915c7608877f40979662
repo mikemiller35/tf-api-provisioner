@@ -1,0 +1,60 @@
+pkg/aws/s3/client.go
+  2963eefc0b856ec5 1-42
+pkg/aws/s3/client_test.go
+  2963eefc0b856ec5 1-57
+pkg/aws/s3/mocks/mock_s3_client.go
+  2963eefc0b856ec5 1-122
+internal/modules/fetcher.go
+  2963eefc0b856ec5 14,16,20,25,48,104,129-130,132,136,138,142,144-147,151,157-158,160,163,170-171,175-177,190
+internal/modules/fetcher_test.go
+  2963eefc0b856ec5 20,44,52
+internal/status/store.go
+  2963eefc0b856ec5 12,16,25,29,36,46,65,74,114,122,126-127,133,136,139-141
+internal/config/config.go
+  2963eefc0b856ec5 4,44-45,47-52,54-58,60-61,67,71-72,83-84
+internal/httpapi/handlers.go
+  2963eefc0b856ec5 34-35,38,45-55
+cmd/root.go
+  2963eefc0b856ec5 11,14,16
+internal/provisioner/provisioner.go
+  2963eefc0b856ec5 135-148,164-165,167-172
+README.md
+  eaf755bb4ed0b18b 24
+cmd/serve.go
+  2963eefc0b856ec5 20,41
+internal/status/store_test.go
+  2963eefc0b856ec5 22,58,114,122
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.9",
+  "base_commit_sha": "146cfc6238057016699e915c7608877f40979662",
+  "prompts": {
+    "2963eefc0b856ec5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e17b6596-7356-4109-84b4-c823fc61d74a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mike Miller <mike.miller@getgarner.com>",
+      "messages": [],
+      "total_additions": 355,
+      "total_deletions": 201,
+      "accepted_lines": 339,
+      "overriden_lines": 0
+    },
+    "eaf755bb4ed0b18b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e6f7df6f-d889-4e85-ad22-e7ae16460513",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mike Miller <mike.miller@getgarner.com>",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 2,
+      "accepted_lines": 1,
+      "overriden_lines": 1
+    }
+  }
+}

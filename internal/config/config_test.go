@@ -12,7 +12,7 @@ import (
 var _ = Describe("Config.Load", func() {
 	BeforeEach(func() {
 		for _, k := range []string{
-			"AWS_REGION", "TF_MODULE_BUCKET", "TF_STATE_BUCKET", "TF_STATE_DYNAMODB_TABLE",
+			"AWS_REGION", "TF_MODULE_BUCKET", "TF_STATUS_BUCKET", "TF_STATE_BUCKET", "TF_STATE_DYNAMODB_TABLE",
 			"TF_STATE_REGION", "PORT", "TF_BINARY_PATH", "TF_WORK_DIR",
 			"TF_PLUGIN_CACHE_DIR", "TF_JOB_TIMEOUT",
 		} {
@@ -24,7 +24,7 @@ var _ = Describe("Config.Load", func() {
 		It("returns an error listing every missing var", func() {
 			_, err := config.Load()
 			Expect(err).To(HaveOccurred())
-			for _, want := range []string{"AWS_REGION", "TF_MODULE_BUCKET", "TF_STATE_BUCKET", "TF_STATE_DYNAMODB_TABLE"} {
+			for _, want := range []string{"AWS_REGION", "TF_MODULE_BUCKET", "TF_STATUS_BUCKET", "TF_STATE_BUCKET", "TF_STATE_DYNAMODB_TABLE"} {
 				Expect(err.Error()).To(ContainSubstring(want))
 			}
 		})
@@ -34,6 +34,7 @@ var _ = Describe("Config.Load", func() {
 		BeforeEach(func() {
 			GinkgoT().Setenv("AWS_REGION", "us-east-1")
 			GinkgoT().Setenv("TF_MODULE_BUCKET", "mods")
+			GinkgoT().Setenv("TF_STATUS_BUCKET", "statuses")
 			GinkgoT().Setenv("TF_STATE_BUCKET", "state")
 			GinkgoT().Setenv("TF_STATE_DYNAMODB_TABLE", "locks")
 		})

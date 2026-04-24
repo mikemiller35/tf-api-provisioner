@@ -1,6 +1,7 @@
 package config
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"os"
@@ -15,6 +16,7 @@ type Config struct {
 	AWSEndpointURL string
 
 	ModuleBucket    string
+	StatusBucket    string
 	StateBucket     string
 	StateRegion     string
 	StateLockTable  string
@@ -31,6 +33,7 @@ func Load() (Config, error) {
 		AWSRegion:       os.Getenv("AWS_REGION"),
 		AWSEndpointURL:  os.Getenv("AWS_ENDPOINT_URL"),
 		ModuleBucket:    os.Getenv("TF_MODULE_BUCKET"),
+		StatusBucket:    os.Getenv("TF_STATUS_BUCKET"),
 		StateBucket:     os.Getenv("TF_STATE_BUCKET"),
 		StateRegion:     os.Getenv("TF_STATE_REGION"),
 		StateLockTable:  os.Getenv("TF_STATE_DYNAMODB_TABLE"),
@@ -38,40 +41,35 @@ func Load() (Config, error) {
 		WorkDir:         strFromEnv("TF_WORK_DIR", "/var/lib/tf-provisioner"),
 		JobTimeout:      durationFromEnv("TF_JOB_TIMEOUT", 30*time.Minute),
 	}
-	if cfg.StateRegion == "" {
-		cfg.StateRegion = cfg.AWSRegion
-	}
-	cfg.PluginCacheDir = strFromEnv("TF_PLUGIN_CACHE_DIR", cfg.WorkDir+"/plugin-cache")
+	cfg.StateRegion = cmp.Or(cfg.StateRegion, cfg.AWSRegion)
+	cfg.PluginCacheDir = cmp.Or(os.Getenv("TF_PLUGIN_CACHE_DIR"), cfg.WorkDir+"/plugin-cache")
 
-	var missing []string
-	if cfg.AWSRegion == "" {
-		missing = append(missing, "AWS_REGION")
+	required := map[string]string{
+		"AWS_REGION":              cfg.AWSRegion,
+		"TF_MODULE_BUCKET":        cfg.ModuleBucket,
+		"TF_STATUS_BUCKET":        cfg.StatusBucket,
+		"TF_STATE_BUCKET":         cfg.StateBucket,
+		"TF_STATE_DYNAMODB_TABLE": cfg.StateLockTable,
 	}
-	if cfg.ModuleBucket == "" {
-		missing = append(missing, "TF_MODULE_BUCKET")
+	var errs []error
+	for name, val := range required {
+		if val == "" {
+			errs = append(errs, fmt.Errorf("missing required env var: %s", name))
+		}
 	}
-	if cfg.StateBucket == "" {
-		missing = append(missing, "TF_STATE_BUCKET")
-	}
-	if cfg.StateLockTable == "" {
-		missing = append(missing, "TF_STATE_DYNAMODB_TABLE")
-	}
-	if len(missing) > 0 {
-		return Config{}, fmt.Errorf("missing required env vars: %v", missing)
+	if err := errors.Join(errs...); err != nil {
+		return Config{}, err
 	}
 	return cfg, nil
 }
 
 func strFromEnv(key, def string) string {
-	if v, ok := os.LookupEnv(key); ok && v != "" {
-		return v
-	}
-	return def
+	return cmp.Or(os.Getenv(key), def)
 }
 
 func intFromEnv(key string, def int) int {
-	v, ok := os.LookupEnv(key)
-	if !ok || v == "" {
+	v := os.Getenv(key)
+	if v == "" {
 		return def
 	}
 	n, err := strconv.Atoi(v)
@@ -82,8 +80,8 @@ func intFromEnv(key string, def int) int {
 }
 
 func durationFromEnv(key string, def time.Duration) time.Duration {
-	v, ok := os.LookupEnv(key)
-	if !ok || v == "" {
+	v := os.Getenv(key)
+	if v == "" {
 		return def
 	}
 	d, err := time.ParseDuration(v)
@@ -92,5 +90,3 @@ func durationFromEnv(key string, def time.Duration) time.Duration {
 	}
 	return d
 }
-
-var ErrMissingConfig = errors.New("missing required configuration")

@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	"go.uber.org/zap"
 
 	"go-tf-provisioner/internal/config"
 	"go-tf-provisioner/internal/httpapi"
@@ -20,7 +21,7 @@ import (
 )
 
 func newTestServer(prov httpapi.ProvisionService) *httpapi.Server {
-	return httpapi.NewServer(config.Config{Port: 0}, prov)
+	return httpapi.NewServer(config.Config{Port: 0}, prov, zap.NewNop())
 }
 
 // doRequest drives the server's http.Handler directly, avoiding any network

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
 	"net/mail"
 	"os"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 
 	"go-tf-provisioner/internal/config"
 	"go-tf-provisioner/internal/modules"
@@ -32,18 +32,17 @@ type ValidationError struct{ Msg string }
 func (e *ValidationError) Error() string { return e.Msg }
 
 func (r ProvisionRequest) Validate() error {
+	required := []struct{ name, val string }{
+		{"customerId", r.CustomerID},
+		{"productCode", r.ProductCode},
+		{"companyName", r.CompanyName},
+		{"contactEmail", r.ContactEmail},
+	}
 	var missing []string
-	if strings.TrimSpace(r.CustomerID) == "" {
-		missing = append(missing, "customerId")
-	}
-	if strings.TrimSpace(r.ProductCode) == "" {
-		missing = append(missing, "productCode")
-	}
-	if strings.TrimSpace(r.CompanyName) == "" {
-		missing = append(missing, "companyName")
-	}
-	if strings.TrimSpace(r.ContactEmail) == "" {
-		missing = append(missing, "contactEmail")
+	for _, f := range required {
+		if strings.TrimSpace(f.val) == "" {
+			missing = append(missing, f.name)
+		}
 	}
 	if len(missing) > 0 {
 		return &ValidationError{Msg: "missing required fields: " + strings.Join(missing, ", ")}
@@ -65,10 +64,14 @@ type Provisioner struct {
 	store   *status.Store
 	fetcher *modules.Fetcher
 	runner  *tfrunner.Runner
+	logger  *zap.Logger
 }
 
-func New(cfg config.Config, store *status.Store, fetcher *modules.Fetcher, runner *tfrunner.Runner) *Provisioner {
-	return &Provisioner{cfg: cfg, store: store, fetcher: fetcher, runner: runner}
+func New(cfg config.Config, store *status.Store, fetcher *modules.Fetcher, runner *tfrunner.Runner, logger *zap.Logger) *Provisioner {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	return &Provisioner{cfg: cfg, store: store, fetcher: fetcher, runner: runner, logger: logger}
 }
 
 // Submit validates the request, claims a running status slot, and kicks off a
@@ -115,38 +118,59 @@ func (p *Provisioner) run(st status.Status, req ProvisionRequest) {
 	defer cancel()
 
 	logBuf := &bytes.Buffer{}
-	logger := log.New(os.Stdout, fmt.Sprintf("[job=%s customer=%s product=%s] ", st.JobID, st.CustomerID, st.ProductCode), log.LstdFlags)
-	logger.Printf("starting terraform apply")
+	logger := p.logger.With(
+		zap.String("job_id", st.JobID),
+		zap.String("customer_id", st.CustomerID),
+		zap.String("product_code", st.ProductCode),
+	)
+	logger.Info("starting terraform apply")
 
 	runDir := filepath.Join(p.cfg.WorkDir, "runs", st.JobID)
 	defer func() {
 		if err := os.RemoveAll(runDir); err != nil {
-			logger.Printf("cleanup runDir failed: %v", err)
+			logger.Warn("cleanup runDir failed", zap.Error(err))
+		}
+	}()
+
+	final := st
+
+	// Recover from panics in runJob so the status never stays stuck at running.
+	defer func() {
+		if rec := recover(); rec != nil {
+			logger.Error("job panic", zap.Any("panic", rec), zap.Stack("stack"))
+			endedAt := time.Now().UTC()
+			final.State = status.StateFailed
+			final.EndedAt = &endedAt
+			final.Error = formatErr(fmt.Errorf("panic: %v", rec), logBuf.String())
+			p.persistFinal(ctx, logger, final)
 		}
 	}()
 
 	result, runErr := p.runJob(ctx, st, req, runDir, logBuf)
 
 	endedAt := time.Now().UTC()
-	final := st
 	final.EndedAt = &endedAt
 
 	if runErr != nil {
 		final.State = status.StateFailed
 		final.Error = formatErr(runErr, logBuf.String())
-		logger.Printf("terraform apply failed: %v", runErr)
+		logger.Error("terraform apply failed", zap.Error(runErr))
 	} else {
 		final.State = status.StateSucceeded
 		final.Outputs = result.Outputs
-		logger.Printf("terraform apply succeeded")
+		logger.Info("terraform apply succeeded")
 	}
 
-	// Persist final status with a fresh context; the job ctx may have been
-	// cancelled (timeout, shutdown) but we still want the failure recorded.
-	putCtx, putCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer putCancel()
-	if err := p.store.Put(putCtx, final); err != nil {
-		logger.Printf("failed to persist final status: %v", err)
+	p.persistFinal(ctx, logger, final)
+}
+
+// persistFinal writes the terminal status under a detached context so a
+// cancelled/timed-out job ctx still records the outcome.
+func (p *Provisioner) persistFinal(ctx context.Context, logger *zap.Logger, st status.Status) {
+	putCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	defer cancel()
+	if err := p.store.Put(putCtx, st); err != nil {
+		logger.Error("failed to persist final status", zap.Error(err))
 	}
 }
 

@@ -16,8 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
-	"go-tf-provisioner/internal/awsclient/mocks"
 	"go-tf-provisioner/internal/modules"
+	"go-tf-provisioner/pkg/aws/s3/mocks"
 )
 
 func zipBytes(entries map[string]string) []byte {
@@ -41,7 +41,7 @@ func etagOf(body []byte) string {
 var _ = Describe("modules.Fetcher", func() {
 	var (
 		ctrl    *gomock.Controller
-		mockS3  *mocks.MockS3Client
+		mockS3  *mocks.MockClient
 		cacheDir string
 		fetcher *modules.Fetcher
 		ctx     context.Context
@@ -49,7 +49,7 @@ var _ = Describe("modules.Fetcher", func() {
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-		mockS3 = mocks.NewMockS3Client(ctrl)
+		mockS3 = mocks.NewMockClient(ctrl)
 		cacheDir = GinkgoT().TempDir()
 		fetcher = modules.NewFetcher(mockS3, "modules", cacheDir)
 		ctx = context.Background()

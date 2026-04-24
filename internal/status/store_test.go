@@ -18,8 +18,8 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
-	"go-tf-provisioner/internal/awsclient/mocks"
 	"go-tf-provisioner/internal/status"
+	"go-tf-provisioner/pkg/aws/s3/mocks"
 )
 
 // backingStore is a tiny in-memory bucket used by gomock DoAndReturn stubs, so
@@ -55,7 +55,7 @@ func (b *backingStore) keys() []string {
 	return out
 }
 
-func wireMockAsBacking(m *mocks.MockS3Client, store *backingStore) {
+func wireMockAsBacking(m *mocks.MockClient, store *backingStore) {
 	m.EXPECT().GetObject(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, in *s3.GetObjectInput, _ ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
 			body, ok := store.get(aws.ToString(in.Key))
@@ -111,7 +111,7 @@ func seed(customerID, productCode string, state status.State) status.Status {
 var _ = Describe("status.Store", func() {
 	var (
 		ctrl    *gomock.Controller
-		mockS3  *mocks.MockS3Client
+		mockS3  *mocks.MockClient
 		backing *backingStore
 		store   *status.Store
 		ctx     context.Context
@@ -119,7 +119,7 @@ var _ = Describe("status.Store", func() {
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-		mockS3 = mocks.NewMockS3Client(ctrl)
+		mockS3 = mocks.NewMockClient(ctrl)
 		backing = newBacking()
 		wireMockAsBacking(mockS3, backing)
 		store = status.NewStore(mockS3, "state")

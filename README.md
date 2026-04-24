@@ -14,13 +14,14 @@ Terraform state lives in S3 with a DynamoDB lock table. Modules are pulled from 
 
 ```mermaid
 flowchart LR
-    MP[AWS Marketplace] -->|POST /provision| API[HTTP API]
-    API --> P[Provisioner]
-    P -->|fetch module| S3M[(S3 modules)]
+    MP[AWS Marketplace] -->|subscription event| CS[C# Fulfillment Svc]
+    CS -->|POST /provision| API[go-tf-provisioner]
+    API --> P[TF Provisioner]
+    P -->|fetch module| S3M[(TF modules in S3)]
     P -->|terraform apply| TF[Terraform]
     TF --> AWS
     P -->|status| S3S[(S3 status)]
-    MP -->|GET /info| API
+    CS -->|GET /info| API
     API --> S3S
 ```
 
@@ -37,6 +38,7 @@ Required environment:
 | ------------------------- | -------------------------------------------------- |
 | `AWS_REGION`              | Default AWS region for the service                 |
 | `TF_MODULE_BUCKET`        | S3 bucket containing per-product Terraform modules |
+| `TF_STATUS_BUCKET`        | S3 bucket for job-status JSON objects              |
 | `TF_STATE_BUCKET`         | S3 bucket for Terraform remote state               |
 | `TF_STATE_DYNAMODB_TABLE` | DynamoDB table for state locking                   |
 

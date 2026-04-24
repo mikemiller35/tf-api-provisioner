@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"go.uber.org/zap"
 
 	"go-tf-provisioner/internal/config"
 	"go-tf-provisioner/internal/provisioner"
@@ -25,20 +28,35 @@ type ProvisionService interface {
 }
 
 type Server struct {
-	cfg  config.Config
-	prov ProvisionService
-	srv  *http.Server
+	cfg    config.Config
+	prov   ProvisionService
+	logger *zap.Logger
+	srv    *http.Server
 }
 
-func NewServer(cfg config.Config, prov ProvisionService) *Server {
-	s := &Server{cfg: cfg, prov: prov}
-	mux := http.NewServeMux()
-	mux.HandleFunc("POST /provision", s.provisionHandler)
-	mux.HandleFunc("GET /info", s.infoHandler)
-	mux.HandleFunc("GET /healthz", s.healthHandler)
+func NewServer(cfg config.Config, prov ProvisionService, logger *zap.Logger) *Server {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	s := &Server{cfg: cfg, prov: prov, logger: logger}
+
+	r := chi.NewRouter()
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(requestLogger(logger))
+	r.Use(middleware.Recoverer)
+
+	r.Get("/healthz", s.healthHandler)
+	r.Get("/info", s.infoHandler)
+
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.AllowContentType("application/json"))
+		r.Post("/provision", s.provisionHandler)
+	})
+
 	s.srv = &http.Server{
 		Addr:              net.JoinHostPort("", strconv.Itoa(cfg.Port)),
-		Handler:           mux,
+		Handler:           r,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	return s
@@ -52,7 +70,7 @@ func (s *Server) Handler() http.Handler { return s.srv.Handler }
 func (s *Server) ListenAndServe(ctx context.Context) error {
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("listening on %s", s.srv.Addr)
+		s.logger.Info("listening", zap.String("addr", s.srv.Addr))
 		err := s.srv.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err

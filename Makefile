@@ -1,6 +1,6 @@
 NAME ?= go-tf-provisioner
 
-.PHONY: build clean test test-verbose coverage mockgen lint help
+.PHONY: build clean test mockgen lint
 
 build: ## Build the binary
 	go build -ldflags='-s -w' -o bin/$(NAME) .

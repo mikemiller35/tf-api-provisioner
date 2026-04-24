@@ -6,15 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
+	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
 
-	"go-tf-provisioner/internal/awsclient"
+	"go-tf-provisioner/pkg/aws/s3"
 )
 
 var (
@@ -23,38 +22,18 @@ var (
 )
 
 type Store struct {
-	s3     awsclient.S3Client
+	s3     s3.Client
 	bucket string
 }
 
-func NewStore(s3c awsclient.S3Client, bucket string) *Store {
+func NewStore(s3c s3.Client, bucket string) *Store {
 	return &Store{s3: s3c, bucket: bucket}
 }
 
 // Get fetches the status object for a customer+product. Returns ErrNotFound if
 // the object does not exist.
 func (s *Store) Get(ctx context.Context, customerID, productCode string) (Status, error) {
-	key := StatusKey(customerID, productCode)
-	out, err := s.s3.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(s.bucket),
-		Key:    aws.String(key),
-	})
-	if err != nil {
-		if isNotFound(err) {
-			return Status{}, ErrNotFound
-		}
-		return Status{}, fmt.Errorf("get status %s: %w", key, err)
-	}
-	defer func() { _ = out.Body.Close() }()
-	body, err := io.ReadAll(out.Body)
-	if err != nil {
-		return Status{}, fmt.Errorf("read status body: %w", err)
-	}
-	var st Status
-	if err := json.Unmarshal(body, &st); err != nil {
-		return Status{}, fmt.Errorf("unmarshal status: %w", err)
-	}
-	return st, nil
+	return s.getByKey(ctx, StatusKey(customerID, productCode))
 }
 
 // Put writes the status object.
@@ -64,7 +43,7 @@ func (s *Store) Put(ctx context.Context, st Status) error {
 		return fmt.Errorf("marshal status: %w", err)
 	}
 	key := StatusKey(st.CustomerID, st.ProductCode)
-	_, err = s.s3.PutObject(ctx, &s3.PutObjectInput{
+	_, err = s.s3.PutObject(ctx, &awss3.PutObjectInput{
 		Bucket:      aws.String(s.bucket),
 		Key:         aws.String(key),
 		Body:        bytes.NewReader(body),
@@ -83,7 +62,7 @@ func (s *Store) ListByCustomer(ctx context.Context, customerID, productCodeFilte
 	var out []Status
 	var token *string
 	for {
-		page, err := s.s3.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+		page, err := s.s3.ListObjectsV2(ctx, &awss3.ListObjectsV2Input{
 			Bucket:            aws.String(s.bucket),
 			Prefix:            aws.String(prefix),
 			ContinuationToken: token,
@@ -92,10 +71,7 @@ func (s *Store) ListByCustomer(ctx context.Context, customerID, productCodeFilte
 			return nil, fmt.Errorf("list statuses: %w", err)
 		}
 		for _, obj := range page.Contents {
-			if obj.Key == nil {
-				continue
-			}
-			if !strings.HasSuffix(*obj.Key, ".status.json") {
+			if obj.Key == nil || !strings.HasSuffix(*obj.Key, ".status.json") {
 				continue
 			}
 			st, err := s.getByKey(ctx, *obj.Key)
@@ -135,38 +111,34 @@ func (s *Store) ClaimRunning(ctx context.Context, seed Status) (Status, error) {
 }
 
 func (s *Store) getByKey(ctx context.Context, key string) (Status, error) {
-	out, err := s.s3.GetObject(ctx, &s3.GetObjectInput{
+	out, err := s.s3.GetObject(ctx, &awss3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		return Status{}, fmt.Errorf("get %s: %w", key, err)
+		if isNotFound(err) {
+			return Status{}, ErrNotFound
+		}
+		return Status{}, fmt.Errorf("get status %s: %w", key, err)
 	}
 	defer func() { _ = out.Body.Close() }()
-	body, err := io.ReadAll(out.Body)
-	if err != nil {
-		return Status{}, err
-	}
 	var st Status
-	if err := json.Unmarshal(body, &st); err != nil {
-		return Status{}, fmt.Errorf("unmarshal %s: %w", key, err)
+	if err := json.NewDecoder(out.Body).Decode(&st); err != nil {
+		return Status{}, fmt.Errorf("unmarshal status %s: %w", key, err)
 	}
 	return st, nil
 }
 
 func isNotFound(err error) bool {
-	var nsk *s3types.NoSuchKey
-	if errors.As(err, &nsk) {
+	if _, ok := errors.AsType[*s3types.NoSuchKey](err); ok {
 		return true
 	}
-	var nf *s3types.NotFound
-	if errors.As(err, &nf) {
+	if _, ok := errors.AsType[*s3types.NotFound](err); ok {
 		return true
 	}
-	var ae smithy.APIError
-	if errors.As(err, &ae) {
-		code := ae.ErrorCode()
-		if code == "NoSuchKey" || code == "NotFound" || code == "404" {
+	if ae, ok := errors.AsType[smithy.APIError](err); ok {
+		switch ae.ErrorCode() {
+		case "NoSuchKey", "NotFound", "404":
 			return true
 		}
 	}

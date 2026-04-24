@@ -1,0 +1,48 @@
+README.md
+  f776361800d5601b 40
+internal/config/config_test.go
+  f776361800d5601b 15,27,37
+Dockerfile
+  f031b69c2f9db151 16
+cmd/serve.go
+  f776361800d5601b 46
+internal/modules/fetcher.go
+  f776361800d5601b 33,37-46,59-60,62-65,81,92,101-103,109-126
+internal/awsclient/s3_test.go
+  f776361800d5601b 1-57
+internal/config/config.go
+  f776361800d5601b 18,35,55-57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.9",
+  "base_commit_sha": "dc94a26c068d235dbd8ae3b389d9a1a21bf630e6",
+  "prompts": {
+    "f031b69c2f9db151": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ebc8c306-00b2-4acf-a6da-17ab126501b8",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mike Miller <mike.miller@getgarner.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 2,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "f776361800d5601b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fc1cd1e3-a513-41ba-bf39-ec4513d04273",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Mike Miller <mike.miller@getgarner.com>",
+      "messages": [],
+      "total_additions": 117,
+      "total_deletions": 30,
+      "accepted_lines": 109,
+      "overriden_lines": 0
+    }
+  }
+}
